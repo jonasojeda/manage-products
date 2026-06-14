@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { Bell, LogOut, Search, User } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Input } from "@/components/ui/input";
@@ -13,9 +13,30 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { getUser, logout } from "@/lib/api";
+import { toast } from "sonner";
 
 export function TopBar() {
-  const navigate = useNavigate();
+  const user = getUser();
+  const userName = user?.nombre || user?.name || "Admin User";
+  const userEmail = user?.email || "admin@yopmail.com";
+  const userInitials = userName
+    .split(" ")
+    .map((n: string) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  const handleLogout = async () => {
+    const toastId = toast.loading("Logging out...");
+    try {
+      await logout();
+      toast.success("Logged out successfully.", { id: toastId });
+    } catch (error) {
+      toast.error("Logout failed.", { id: toastId });
+    }
+  };
+
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur">
       <SidebarTrigger />
@@ -32,22 +53,22 @@ export function TopBar() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-2 px-2">
               <Avatar className="h-7 w-7">
-                <AvatarFallback className="text-xs">AM</AvatarFallback>
+                <AvatarFallback className="text-xs">{userInitials}</AvatarFallback>
               </Avatar>
-              <span className="hidden text-sm font-medium sm:inline">Alex Morgan</span>
+              <span className="hidden text-sm font-medium sm:inline">{userName}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>
-              <div className="text-sm font-medium">Alex Morgan</div>
-              <div className="text-xs text-muted-foreground">alex@acme.io</div>
+              <div className="text-sm font-medium">{userName}</div>
+              <div className="text-xs text-muted-foreground">{userEmail}</div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link to="/settings"><User className="mr-2 h-4 w-4" />Profile</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate({ to: "/login" })}>
+            <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive cursor-pointer">
               <LogOut className="mr-2 h-4 w-4" />Log out
             </DropdownMenuItem>
           </DropdownMenuContent>
