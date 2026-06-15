@@ -210,4 +210,105 @@ class ProductImportTest extends TestCase
             'sub_subcategory_id' => null,
         ]);
     }
+
+    public function test_import_skips_existing_products_when_option_is_true(): void
+    {
+        // Setup initial product
+        $brand = Brand::create(['name' => 'Sony']);
+        $category = Category::create(['name' => 'Electronics']);
+
+        $product = Product::create([
+            'sku' => 'SKU-7777',
+            'ean' => '7791234567890',
+            'name' => 'Old Product Name',
+            'brand_id' => $brand->id,
+            'category_id' => $category->id,
+            'price' => 500.00,
+            'status' => 'active',
+        ]);
+
+        $payload = [
+            'skip_existing' => true,
+            'products' => [
+                [
+                    'ean' => '7791234567890', // Exists, should be skipped
+                    'name' => 'Updated Product Name',
+                    'brand' => 'Sony Electronics', // New brand name that doesn't exist
+                    'category' => 'Home Entertainment',
+                    'price' => 600.00,
+                ],
+                [
+                    'ean' => '7791234567891', // Does not exist, should be created
+                    'name' => 'New Product',
+                    'brand' => 'Sony',
+                    'category' => 'Electronics',
+                    'price' => 200.00,
+                ]
+            ]
+        ];
+
+        $response = $this->postJson('/api/products/import', $payload);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'message' => 'Import completed successfully',
+            'imported' => 1,
+            'updated' => 0,
+            'skipped' => 1,
+        ]);
+
+        // Product with EAN 7791234567890 should retain old name and price (not updated)
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'ean' => '7791234567890',
+            'name' => 'Old Product Name',
+            'price' => 500.00,
+        ]);
+
+        // Brand 'Sony Electronics' should NOT be created because the row was skipped
+        $this->assertDatabaseMissing('brands', ['name' => 'Sony Electronics']);
+
+        // Product with EAN 7791234567891 should be created
+        $this->assertDatabaseHas('products', [
+            'ean' => '7791234567891',
+            'name' => 'New Product',
+            'price' => 200.00,
+        ]);
+    }
+
+    public function test_import_handles_duplicate_eans_in_same_payload_gracefully(): void
+    {
+        $payload = [
+            'skip_existing' => true,
+            'products' => [
+                [
+                    'ean' => '7798888888888',
+                    'name' => 'First Product Appearance',
+                    'brand' => 'Sony',
+                    'price' => 100.00,
+                ],
+                [
+                    'ean' => '7798888888888', // Duplicate EAN in same batch
+                    'name' => 'Second Product Appearance',
+                    'brand' => 'Sony',
+                    'price' => 200.00,
+                ]
+            ]
+        ];
+
+        $response = $this->postJson('/api/products/import', $payload);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'message' => 'Import completed successfully',
+            'imported' => 1,
+            'updated' => 0,
+            'skipped' => 1, // Second one should be skipped
+        ]);
+
+        $this->assertDatabaseHas('products', [
+            'ean' => '7798888888888',
+            'name' => 'First Product Appearance',
+        ]);
+    }
 }

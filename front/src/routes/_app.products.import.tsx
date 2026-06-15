@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { apiRequest } from "@/lib/api";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
@@ -40,13 +42,72 @@ function ImportCsv() {
   const [rawRows, setRawRows] = useState<any[][]>([]);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [importing, setImporting] = useState(false);
+  const [skipExisting, setSkipExisting] = useState(false);
+  const [allJsonRows, setAllJsonRows] = useState<any[][]>([]);
+  const [headerRow, setHeaderRow] = useState<number>(1);
+  const [dataStartRow, setDataStartRow] = useState<number>(2);
   const [importStatus, setImportStatus] = useState<{
     total: number;
     current: number;
     imported: number;
     updated: number;
+    skipped: number;
     message: string;
   } | null>(null);
+
+  const applyRowConfiguration = (jsonRows: any[][], hRow: number, dStartRow: number) => {
+    if (jsonRows.length === 0) return;
+
+    const hIndex = Math.max(0, hRow - 1);
+    const dIndex = Math.max(0, dStartRow - 1);
+
+    const fileHeaders = (jsonRows[hIndex] || []).map((h: any) => String(h || "").trim()).filter(Boolean);
+    const dataRows = jsonRows.slice(dIndex).filter(row => row.some(cell => cell !== null && cell !== undefined && cell !== ""));
+
+    setHeaders(fileHeaders);
+    setRawRows(dataRows);
+
+    const updatedMapping: Record<string, string> = {};
+    IMPORT_FIELDS.forEach(field => {
+      const matchedHeader = fileHeaders.find(h => {
+        const hLower = h.toLowerCase();
+        return field.patterns.some(p => hLower.includes(p) || p.includes(hLower));
+      });
+      if (matchedHeader) {
+        updatedMapping[field.key] = matchedHeader;
+      } else {
+        updatedMapping[field.key] = "";
+      }
+    });
+    setMapping(updatedMapping);
+  };
+
+  const handleHeaderRowChange = (val: number) => {
+    const maxRows = allJsonRows.length;
+    let newHeaderRow = Math.max(1, val);
+    if (newHeaderRow > maxRows) {
+      newHeaderRow = maxRows;
+    }
+    setHeaderRow(newHeaderRow);
+    
+    let newDataStartRow = dataStartRow;
+    if (dataStartRow <= newHeaderRow) {
+      newDataStartRow = Math.min(maxRows, newHeaderRow + 1);
+      setDataStartRow(newDataStartRow);
+    }
+    
+    applyRowConfiguration(allJsonRows, newHeaderRow, newDataStartRow);
+  };
+
+  const handleDataStartRowChange = (val: number) => {
+    const maxRows = allJsonRows.length;
+    let newDataStartRow = Math.max(headerRow + 1, val);
+    if (newDataStartRow > maxRows + 1) {
+      newDataStartRow = maxRows + 1;
+    }
+    setDataStartRow(newDataStartRow);
+    applyRowConfiguration(allJsonRows, headerRow, newDataStartRow);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -64,7 +125,6 @@ function ImportCsv() {
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         
-        // Read raw grid data (header: 1 returns array of arrays)
         const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
         
         if (jsonRows.length === 0) {
@@ -72,34 +132,12 @@ function ImportCsv() {
           return;
         }
 
-        // Clean headers and filter out empty columns
-        const fileHeaders = (jsonRows[0] || []).map((h: any) => String(h || "").trim()).filter(Boolean);
-        const dataRows = jsonRows.slice(1).filter(row => row.some(cell => cell !== null && cell !== undefined && cell !== ""));
-
-        if (fileHeaders.length === 0) {
-          toast.error("No columns detected in the first row.");
-          return;
-        }
-
         setFile(selectedFile);
-        setHeaders(fileHeaders);
-        setRawRows(dataRows);
-
-        // Auto-match headers to target attributes
-        const initialMapping: Record<string, string> = {};
-        IMPORT_FIELDS.forEach(field => {
-          const matchedHeader = fileHeaders.find(h => {
-            const hLower = h.toLowerCase();
-            return field.patterns.some(p => hLower.includes(p) || p.includes(hLower));
-          });
-          if (matchedHeader) {
-            initialMapping[field.key] = matchedHeader;
-          } else {
-            initialMapping[field.key] = "";
-          }
-        });
-        setMapping(initialMapping);
-        toast.success(`Loaded file: ${selectedFile.name} (${dataRows.length} rows)`);
+        setAllJsonRows(jsonRows);
+        setHeaderRow(1);
+        setDataStartRow(2);
+        applyRowConfiguration(jsonRows, 1, 2);
+        toast.success(`Loaded file: ${selectedFile.name} (${jsonRows.length} total rows)`);
       } catch (error) {
         console.error("Failed to parse file", error);
         toast.error("Failed to parse the file. Please ensure it's a valid CSV or XLS/XLSX file.");
@@ -168,12 +206,14 @@ function ImportCsv() {
       current: 0,
       imported: 0,
       updated: 0,
+      skipped: 0,
       message: "Preparing import payload..."
     });
 
     const BATCH_SIZE = 2000;
     let importedCount = 0;
     let updatedCount = 0;
+    let skippedCount = 0;
 
     for (let i = 0; i < total; i += BATCH_SIZE) {
       const batch = allProducts.slice(i, i + BATCH_SIZE);
@@ -188,17 +228,22 @@ function ImportCsv() {
       try {
         const response = await apiRequest("products/import", {
           method: "POST",
-          body: JSON.stringify({ products: batch }),
+          body: JSON.stringify({
+            products: batch,
+            skip_existing: skipExisting
+          }),
         });
 
         importedCount += response.imported || 0;
         updatedCount += response.updated || 0;
+        skippedCount += response.skipped || 0;
 
         setImportStatus({
           total,
           current: currentProgress,
           imported: importedCount,
           updated: updatedCount,
+          skipped: skippedCount,
           message: `Processed ${currentProgress} of ${total} products...`
         });
       } catch (err: any) {
@@ -213,7 +258,7 @@ function ImportCsv() {
       }
     }
 
-    toast.success(`Import completed successfully! Created: ${importedCount}, Updated: ${updatedCount}`, { duration: 7000 });
+    toast.success(`Import completed successfully! Created: ${importedCount}, Updated: ${updatedCount}, Skipped: ${skippedCount}`, { duration: 7000 });
     setImporting(false);
     
     setTimeout(() => {
@@ -226,6 +271,10 @@ function ImportCsv() {
     setHeaders([]);
     setRawRows([]);
     setMapping({});
+    setSkipExisting(false);
+    setAllJsonRows([]);
+    setHeaderRow(1);
+    setDataStartRow(2);
     setImportStatus(null);
   };
 
@@ -289,7 +338,7 @@ function ImportCsv() {
                   style={{ width: `${Math.round((importStatus.current / importStatus.total) * 100)}%` }}
                 ></div>
               </div>
-              <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4 text-center">
                 <div className="rounded-lg border border-border p-3">
                   <div className="text-xs text-muted-foreground">Progress</div>
                   <div className="mt-1 text-lg font-semibold">
@@ -309,6 +358,12 @@ function ImportCsv() {
                   <div className="text-xs text-muted-foreground">Updated</div>
                   <div className="mt-1 text-lg font-semibold text-blue-600">
                     {importStatus.updated}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-border p-3">
+                  <div className="text-xs text-muted-foreground">Skipped</div>
+                  <div className="mt-1 text-lg font-semibold text-amber-600">
+                    {importStatus.skipped}
                   </div>
                 </div>
               </div>
@@ -337,6 +392,74 @@ function ImportCsv() {
                 <Button variant="outline" size="sm" onClick={handleReset} className="w-full">
                   Change File
                 </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="border-border shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Import Options</CardTitle>
+                <CardDescription className="text-xs">
+                  Configure behavior for the import process.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-start space-x-3 rounded-lg border border-border p-3 bg-muted/20">
+                  <Checkbox
+                    id="skip-existing"
+                    checked={skipExisting}
+                    onCheckedChange={(checked) => setSkipExisting(!!checked)}
+                    disabled={importing}
+                    className="mt-1"
+                  />
+                  <div className="grid gap-1.5 leading-none">
+                    <label
+                      htmlFor="skip-existing"
+                      className="text-xs font-semibold select-none cursor-pointer leading-normal text-foreground"
+                    >
+                      Omitir productos existentes
+                    </label>
+                    <p className="text-[10px] text-muted-foreground leading-relaxed">
+                      Si se activa, se omitirán los productos con EAN ya registrados, reduciendo drásticamente el tiempo de carga. Si se desactiva, se actualizarán los datos de los productos existentes.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 border-t border-border pt-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">
+                      Fila de cabecera
+                    </label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={allJsonRows.length || 1}
+                      value={headerRow}
+                      onChange={(e) => handleHeaderRowChange(parseInt(e.target.value) || 1)}
+                      disabled={importing || allJsonRows.length === 0}
+                      className="h-8 text-xs"
+                    />
+                    <p className="text-[10px] text-muted-foreground leading-normal">
+                      Fila con los nombres de las columnas.
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">
+                      Fila inicio de datos
+                    </label>
+                    <Input
+                      type="number"
+                      min={headerRow + 1}
+                      max={allJsonRows.length + 1 || 2}
+                      value={dataStartRow}
+                      onChange={(e) => handleDataStartRowChange(parseInt(e.target.value) || (headerRow + 1))}
+                      disabled={importing || allJsonRows.length === 0}
+                      className="h-8 text-xs"
+                    />
+                    <p className="text-[10px] text-muted-foreground leading-normal">
+                      Fila donde empiezan los productos.
+                    </p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 

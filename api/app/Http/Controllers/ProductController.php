@@ -9,6 +9,7 @@ use App\Models\Subcategory;
 use App\Models\SubSubcategory;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {
@@ -132,7 +133,8 @@ class ProductController extends Controller
      */
     public function import(Request $request)
     {
-        ini_set('max_execution_time', 300);
+        set_time_limit(0);
+        ini_set('max_execution_time', 0);
         ini_set('memory_limit', '512M');
 
         $request->validate([
@@ -144,9 +146,12 @@ class ProductController extends Controller
             'products.*.subcategory' => ['nullable', 'string', 'max:255'],
             'products.*.sub_subcategory' => ['nullable', 'string', 'max:255'],
             'products.*.price' => ['nullable', 'numeric', 'min:0'],
+            'skip_existing' => ['nullable', 'boolean'],
         ]);
 
         $productsInput = $request->input('products');
+        $skipExisting = (bool) $request->input('skip_existing', false);
+
         $eans = array_map(function ($item) {
             return trim($item['ean']);
         }, $productsInput);
@@ -160,101 +165,116 @@ class ProductController extends Controller
 
         $importedCount = 0;
         $updatedCount = 0;
+        $skippedCount = 0;
 
         $brandsCache = [];
         $categoriesCache = [];
         $subcategoriesCache = [];
         $subSubcategoriesCache = [];
 
-        foreach ($productsInput as $item) {
-            // Find or create brand
-            $brand = null;
-            if (isset($item['brand']) && trim($item['brand']) !== '') {
-                $brandName = trim($item['brand']);
-                $brandKey = strtolower($brandName);
-                if (isset($brandsCache[$brandKey])) {
-                    $brand = $brandsCache[$brandKey];
-                } else {
-                    $brand = Brand::firstOrCreate(['name' => $brandName]);
-                    $brandsCache[$brandKey] = $brand;
-                }
-            }
+        DB::beginTransaction();
+        try {
+            foreach ($productsInput as $item) {
+                $ean = trim($item['ean']);
+                $product = $existingProducts->get($ean);
 
-            // Find or create category
-            $category = null;
-            $subcategory = null;
-            $subSubcategory = null;
-
-            if (isset($item['category']) && trim($item['category']) !== '') {
-                $catName = trim($item['category']);
-                $catKey = strtolower($catName);
-                if (isset($categoriesCache[$catKey])) {
-                    $category = $categoriesCache[$catKey];
-                } else {
-                    $category = Category::firstOrCreate(['name' => $catName]);
-                    $categoriesCache[$catKey] = $category;
+                if ($product && $skipExisting) {
+                    $skippedCount++;
+                    continue;
                 }
 
-                // Find or create subcategory under this category
-                if (isset($item['subcategory']) && trim($item['subcategory']) !== '') {
-                    $subName = trim($item['subcategory']);
-                    $subKey = $category->id . '_' . strtolower($subName);
-                    if (isset($subcategoriesCache[$subKey])) {
-                        $subcategory = $subcategoriesCache[$subKey];
+                // Find or create brand
+                $brand = null;
+                if (isset($item['brand']) && trim($item['brand']) !== '') {
+                    $brandName = trim($item['brand']);
+                    $brandKey = strtolower($brandName);
+                    if (isset($brandsCache[$brandKey])) {
+                        $brand = $brandsCache[$brandKey];
                     } else {
-                        $subcategory = Subcategory::firstOrCreate([
-                            'category_id' => $category->id,
-                            'name' => $subName
-                        ]);
-                        $subcategoriesCache[$subKey] = $subcategory;
+                        $brand = Brand::firstOrCreate(['name' => $brandName]);
+                        $brandsCache[$brandKey] = $brand;
+                    }
+                }
+
+                // Find or create category
+                $category = null;
+                $subcategory = null;
+                $subSubcategory = null;
+
+                if (isset($item['category']) && trim($item['category']) !== '') {
+                    $catName = trim($item['category']);
+                    $catKey = strtolower($catName);
+                    if (isset($categoriesCache[$catKey])) {
+                        $category = $categoriesCache[$catKey];
+                    } else {
+                        $category = Category::firstOrCreate(['name' => $catName]);
+                        $categoriesCache[$catKey] = $category;
                     }
 
-                    // Find or create sub-subcategory under this subcategory
-                    if (isset($item['sub_subcategory']) && trim($item['sub_subcategory']) !== '') {
-                        $subSubName = trim($item['sub_subcategory']);
-                        $subSubKey = $subcategory->id . '_' . strtolower($subSubName);
-                        if (isset($subSubcategoriesCache[$subSubKey])) {
-                            $subSubcategory = $subSubcategoriesCache[$subSubKey];
+                    // Find or create subcategory under this category
+                    if (isset($item['subcategory']) && trim($item['subcategory']) !== '') {
+                        $subName = trim($item['subcategory']);
+                        $subKey = $category->id . '_' . strtolower($subName);
+                        if (isset($subcategoriesCache[$subKey])) {
+                            $subcategory = $subcategoriesCache[$subKey];
                         } else {
-                            $subSubcategory = SubSubcategory::firstOrCreate([
-                                'subcategory_id' => $subcategory->id,
-                                'name' => $subSubName
+                            $subcategory = Subcategory::firstOrCreate([
+                                'category_id' => $category->id,
+                                'name' => $subName
                             ]);
-                            $subSubcategoriesCache[$subSubKey] = $subSubcategory;
+                            $subcategoriesCache[$subKey] = $subcategory;
+                        }
+
+                        // Find or create sub-subcategory under this subcategory
+                        if (isset($item['sub_subcategory']) && trim($item['sub_subcategory']) !== '') {
+                            $subSubName = trim($item['sub_subcategory']);
+                            $subSubKey = $subcategory->id . '_' . strtolower($subSubName);
+                            if (isset($subSubcategoriesCache[$subSubKey])) {
+                                $subSubcategory = $subSubcategoriesCache[$subSubKey];
+                            } else {
+                                $subSubcategory = SubSubcategory::firstOrCreate([
+                                    'subcategory_id' => $subcategory->id,
+                                    'name' => $subSubName
+                                ]);
+                                $subSubcategoriesCache[$subSubKey] = $subSubcategory;
+                            }
                         }
                     }
                 }
+
+                $productData = [
+                    'name' => trim($item['name']),
+                    'brand_id' => $brand ? $brand->id : null,
+                    'category_id' => $category ? $category->id : null,
+                    'subcategory_id' => $subcategory ? $subcategory->id : null,
+                    'sub_subcategory_id' => $subSubcategory ? $subSubcategory->id : null,
+                    'price' => isset($item['price']) && $item['price'] !== '' ? $item['price'] : null,
+                    'status' => 'active',
+                ];
+
+                if ($product) {
+                    // Update existing product
+                    $product->update($productData);
+                    $updatedCount++;
+                } else {
+                    // Create new product
+                    $productData['ean'] = $ean;
+                    $newProduct = Product::create($productData);
+                    $existingProducts->put($ean, $newProduct);
+                    $importedCount++;
+                }
             }
-
-            $productData = [
-                'name' => trim($item['name']),
-                'brand_id' => $brand ? $brand->id : null,
-                'category_id' => $category ? $category->id : null,
-                'subcategory_id' => $subcategory ? $subcategory->id : null,
-                'sub_subcategory_id' => $subSubcategory ? $subSubcategory->id : null,
-                'price' => isset($item['price']) && $item['price'] !== '' ? $item['price'] : null,
-                'status' => 'active',
-            ];
-
-            $ean = trim($item['ean']);
-            $product = $existingProducts->get($ean);
-
-            if ($product) {
-                // Update existing product
-                $product->update($productData);
-                $updatedCount++;
-            } else {
-                // Create new product
-                $productData['ean'] = $ean;
-                Product::create($productData);
-                $importedCount++;
-            }
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            throw $e;
         }
 
         return response()->json([
             'message' => 'Import completed successfully',
             'imported' => $importedCount,
-            'updated' => $updatedCount
+            'updated' => $updatedCount,
+            'skipped' => $skippedCount,
         ]);
     }
 }
