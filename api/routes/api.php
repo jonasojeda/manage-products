@@ -4,6 +4,9 @@ use App\Http\Controllers\Auth\AccessTokenController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\BrandController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -47,6 +50,11 @@ $router->group(['middleware' => ['auth:sanctum']], function () {
         ->parameters([
             'role' => 'role'
         ]);
+
+    // Products Catalog
+    Route::apiResource('products', ProductController::class);
+    Route::apiResource('categories', CategoryController::class)->only(['index']);
+    Route::apiResource('brands', BrandController::class)->only(['index']);
 });
 
 Route::get('tokens', [AccessTokenController::class, 'index']);
