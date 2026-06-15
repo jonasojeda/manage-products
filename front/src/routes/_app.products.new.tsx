@@ -26,7 +26,6 @@ function NewProduct() {
   const [saving, setSaving] = useState(false);
 
   // Form Fields States
-  const [sku, setSku] = useState("");
   const [name, setName] = useState("");
   const [brandId, setBrandId] = useState("");
   const [status, setStatus] = useState("active");
@@ -81,7 +80,6 @@ function NewProduct() {
 
     try {
       const payload = {
-        sku: sku.trim(),
         name: name.trim(),
         brand_id: parseInt(brandId),
         category_id: selectedCat1Obj.id,
@@ -133,12 +131,11 @@ function NewProduct() {
               <Label htmlFor="sku">SKU</Label>
               <Input
                 id="sku"
-                placeholder="SKU-2001"
-                required
-                value={sku}
-                onChange={(e) => setSku(e.target.value)}
-                disabled={saving}
+                placeholder="Auto-generated"
+                disabled
+                className="bg-muted text-muted-foreground cursor-not-allowed"
               />
+              <p className="text-[11px] text-muted-foreground mt-1">The SKU will be generated automatically upon creation.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="name">Product name</Label>
