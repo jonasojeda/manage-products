@@ -6,6 +6,8 @@ import {
   Upload,
   Tag,
   FolderTree,
+  FolderOpen,
+  Layers,
   KeyRound,
   Settings,
   Boxes,
@@ -39,7 +41,9 @@ const groups = [
     label: "Configuration",
     items: [
       { title: "Brands", url: "/brands", icon: Tag },
-      { title: "Categories", url: "/categories", icon: FolderTree },
+      { title: "Categories Lvl 1", url: "/categories", icon: FolderTree },
+      { title: "Subcategories Lvl 2", url: "/subcategories", icon: FolderOpen },
+      { title: "Sub-subcategories Lvl 3", url: "/sub-subcategories", icon: Layers },
     ],
   },
   {

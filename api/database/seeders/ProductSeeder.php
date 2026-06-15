@@ -99,6 +99,7 @@ class ProductSeeder extends Seeder
 
             Product::create([
                 'sku' => "SKU-" . (1000 + $i),
+                'ean' => "779" . (1000000000 + $i),
                 'name' => $name,
                 'brand_id' => $brand->id,
                 'category_id' => $category->id,

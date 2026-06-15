@@ -44,6 +44,7 @@ class ProductSkuTest extends TestCase
     public function test_sku_is_generated_automatically_when_not_provided(): void
     {
         $payload = [
+            'ean' => '7790000000001',
             'name' => 'Product 1',
             'brand_id' => $this->brand->id,
             'category_id' => $this->category->id,
@@ -67,6 +68,7 @@ class ProductSkuTest extends TestCase
     public function test_sku_increments_automatically_on_subsequent_creations(): void
     {
         $payload1 = [
+            'ean' => '7790000000001',
             'name' => 'Product 1',
             'brand_id' => $this->brand->id,
             'category_id' => $this->category->id,
@@ -81,6 +83,7 @@ class ProductSkuTest extends TestCase
         $response1->assertJsonPath('data.sku', 'SKU-1000');
 
         $payload2 = [
+            'ean' => '7790000000002',
             'name' => 'Product 2',
             'brand_id' => $this->brand->id,
             'category_id' => $this->category->id,
@@ -103,6 +106,7 @@ class ProductSkuTest extends TestCase
     public function test_custom_sku_can_still_be_passed_explicitly(): void
     {
         $payload = [
+            'ean' => '7790000000003',
             'sku' => 'CUSTOM-SKU-99',
             'name' => 'Product with Custom SKU',
             'brand_id' => $this->brand->id,
@@ -128,6 +132,7 @@ class ProductSkuTest extends TestCase
     {
         // Seed a custom high SKU like SKU-2500
         Product::create([
+            'ean' => '7790000000004',
             'sku' => 'SKU-2500',
             'name' => 'High SKU Product',
             'brand_id' => $this->brand->id,
@@ -139,6 +144,7 @@ class ProductSkuTest extends TestCase
         ]);
 
         $payload = [
+            'ean' => '7790000000005',
             'name' => 'Next Product',
             'brand_id' => $this->brand->id,
             'category_id' => $this->category->id,
@@ -156,6 +162,52 @@ class ProductSkuTest extends TestCase
         $this->assertDatabaseHas('products', [
             'name' => 'Next Product',
             'sku' => 'SKU-2501'
+        ]);
+    }
+
+    public function test_product_can_be_created_with_only_level_1_category(): void
+    {
+        $payload = [
+            'ean' => '7790000000006',
+            'name' => 'Partial Cat Product',
+            'brand_id' => $this->brand->id,
+            'category_id' => $this->category->id,
+            'price' => 50.00,
+            'status' => 'active',
+        ];
+
+        $response = $this->postJson('/api/products', $payload);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('data.subcategory_id', null);
+        $response->assertJsonPath('data.sub_subcategory_id', null);
+
+        $this->assertDatabaseHas('products', [
+            'name' => 'Partial Cat Product',
+            'subcategory_id' => null,
+            'sub_subcategory_id' => null,
+        ]);
+    }
+
+    public function test_product_can_be_created_without_brand_and_category(): void
+    {
+        $payload = [
+            'ean' => '7790000000007',
+            'name' => 'Name and EAN Only Product',
+            'price' => 20.00,
+            'status' => 'active',
+        ];
+
+        $response = $this->postJson('/api/products', $payload);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('data.brand_id', null);
+        $response->assertJsonPath('data.category_id', null);
+
+        $this->assertDatabaseHas('products', [
+            'name' => 'Name and EAN Only Product',
+            'brand_id' => null,
+            'category_id' => null,
         ]);
     }
 }

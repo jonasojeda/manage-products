@@ -15,10 +15,10 @@ return new class extends Migration
             $table->id();
             $table->string('sku')->unique();
             $table->string('name');
-            $table->foreignId('brand_id')->constrained('brands')->cascadeOnDelete();
-            $table->foreignId('category_id')->constrained('categories')->cascadeOnDelete();
-            $table->foreignId('subcategory_id')->constrained('subcategories')->cascadeOnDelete();
-            $table->foreignId('sub_subcategory_id')->constrained('sub_subcategories')->cascadeOnDelete();
+            $table->foreignId('brand_id')->nullable()->constrained('brands')->cascadeOnDelete();
+            $table->foreignId('category_id')->nullable()->constrained('categories')->cascadeOnDelete();
+            $table->foreignId('subcategory_id')->nullable()->constrained('subcategories')->cascadeOnDelete();
+            $table->foreignId('sub_subcategory_id')->nullable()->constrained('sub_subcategories')->cascadeOnDelete();
             $table->decimal('price', 10, 2)->nullable();
             $table->enum('status', ['active', 'draft', 'archived'])->default('active');
             $table->timestamps();

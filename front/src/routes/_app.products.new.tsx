@@ -27,6 +27,7 @@ function NewProduct() {
 
   // Form Fields States
   const [name, setName] = useState("");
+  const [ean, setEan] = useState("");
   const [brandId, setBrandId] = useState("");
   const [status, setStatus] = useState("active");
   const [cat1, setCat1] = useState("");
@@ -66,12 +67,12 @@ function NewProduct() {
 
     const selectedCat3Obj = cat3Opts.find((c) => c.name === cat3);
 
-    if (!brandId) {
-      toast.error("Please select a brand.");
+    if (!ean.trim()) {
+      toast.error("Barcode / EAN is required.");
       return;
     }
-    if (!selectedCat1Obj || !selectedCat2Obj || !selectedCat3Obj) {
-      toast.error("Please complete the category hierarchy.");
+    if (!name.trim()) {
+      toast.error("Product name is required.");
       return;
     }
 
@@ -80,11 +81,12 @@ function NewProduct() {
 
     try {
       const payload = {
+        ean: ean.trim(),
         name: name.trim(),
-        brand_id: parseInt(brandId),
-        category_id: selectedCat1Obj.id,
-        subcategory_id: selectedCat2Obj.id,
-        sub_subcategory_id: selectedCat3Obj.id,
+        brand_id: brandId && brandId !== "none" ? parseInt(brandId) : null,
+        category_id: selectedCat1Obj ? selectedCat1Obj.id : null,
+        subcategory_id: selectedCat2Obj ? selectedCat2Obj.id : null,
+        sub_subcategory_id: selectedCat3Obj ? selectedCat3Obj.id : null,
         price: price.trim() === "" ? null : parseFloat(price),
         status: status,
       };
@@ -138,6 +140,17 @@ function NewProduct() {
               <p className="text-[11px] text-muted-foreground mt-1">The SKU will be generated automatically upon creation.</p>
             </div>
             <div className="space-y-2">
+              <Label htmlFor="ean">Barcode / EAN <span className="text-destructive font-bold">*</span></Label>
+              <Input
+                id="ean"
+                placeholder="e.g. 7791234567890"
+                required
+                value={ean}
+                onChange={(e) => setEan(e.target.value)}
+                disabled={saving}
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="name">Product name</Label>
               <Input
                 id="name"
@@ -156,6 +169,7 @@ function NewProduct() {
                   <SelectValue placeholder="Select brand" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">None / No Brand</SelectItem>
                   {brandsList.map((b) => (
                     <SelectItem key={b.id} value={b.id.toString()}>
                       {b.name}
@@ -187,6 +201,7 @@ function NewProduct() {
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">None / No Category</SelectItem>
                   {categoriesList.map((c) => (
                     <SelectItem key={c.id} value={c.name}>
                       {c.name}

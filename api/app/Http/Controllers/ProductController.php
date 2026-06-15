@@ -3,6 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\Brand;
+use App\Models\Category;
+use App\Models\Subcategory;
+use App\Models\SubSubcategory;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -55,11 +59,12 @@ class ProductController extends Controller
     {
         $validated = $request->validate([
             'sku' => ['nullable', 'string', 'unique:products,sku'],
+            'ean' => ['required', 'string', 'unique:products,ean'],
             'name' => ['required', 'string', 'max:255'],
-            'brand_id' => ['required', 'exists:brands,id'],
-            'category_id' => ['required', 'exists:categories,id'],
-            'subcategory_id' => ['required', 'exists:subcategories,id'],
-            'sub_subcategory_id' => ['required', 'exists:sub_subcategories,id'],
+            'brand_id' => ['nullable', 'exists:brands,id'],
+            'category_id' => ['nullable', 'exists:categories,id'],
+            'subcategory_id' => ['nullable', 'exists:subcategories,id'],
+            'sub_subcategory_id' => ['nullable', 'exists:sub_subcategories,id'],
             'price' => ['nullable', 'numeric', 'min:0'],
             'status' => ['required', Rule::in(['active', 'draft', 'archived'])],
         ]);
@@ -90,11 +95,12 @@ class ProductController extends Controller
     {
         $validated = $request->validate([
             'sku' => ['sometimes', 'required', 'string', Rule::unique('products', 'sku')->ignore($product->id)],
+            'ean' => ['sometimes', 'required', 'string', Rule::unique('products', 'ean')->ignore($product->id)],
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'brand_id' => ['sometimes', 'required', 'exists:brands,id'],
-            'category_id' => ['sometimes', 'required', 'exists:categories,id'],
-            'subcategory_id' => ['sometimes', 'required', 'exists:subcategories,id'],
-            'sub_subcategory_id' => ['sometimes', 'required', 'exists:sub_subcategories,id'],
+            'brand_id' => ['sometimes', 'nullable', 'exists:brands,id'],
+            'category_id' => ['sometimes', 'nullable', 'exists:categories,id'],
+            'subcategory_id' => ['sometimes', 'nullable', 'exists:subcategories,id'],
+            'sub_subcategory_id' => ['sometimes', 'nullable', 'exists:sub_subcategories,id'],
             'price' => ['nullable', 'numeric', 'min:0'],
             'status' => ['sometimes', 'required', Rule::in(['active', 'draft', 'archived'])],
         ]);
@@ -118,6 +124,137 @@ class ProductController extends Controller
 
         return response()->json([
             'message' => 'Product deleted successfully'
+        ]);
+    }
+
+    /**
+     * Import products from JSON payload.
+     */
+    public function import(Request $request)
+    {
+        ini_set('max_execution_time', 300);
+        ini_set('memory_limit', '512M');
+
+        $request->validate([
+            'products' => ['required', 'array'],
+            'products.*.name' => ['required', 'string', 'max:255'],
+            'products.*.ean' => ['required', 'string', 'max:255'],
+            'products.*.brand' => ['nullable', 'string', 'max:255'],
+            'products.*.category' => ['nullable', 'string', 'max:255'],
+            'products.*.subcategory' => ['nullable', 'string', 'max:255'],
+            'products.*.sub_subcategory' => ['nullable', 'string', 'max:255'],
+            'products.*.price' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $productsInput = $request->input('products');
+        $eans = array_map(function ($item) {
+            return trim($item['ean']);
+        }, $productsInput);
+
+        // Batch fetch existing products by EAN
+        $existingProducts = Product::whereIn('ean', $eans)
+            ->get()
+            ->keyBy(function ($product) {
+                return trim($product->ean);
+            });
+
+        $importedCount = 0;
+        $updatedCount = 0;
+
+        $brandsCache = [];
+        $categoriesCache = [];
+        $subcategoriesCache = [];
+        $subSubcategoriesCache = [];
+
+        foreach ($productsInput as $item) {
+            // Find or create brand
+            $brand = null;
+            if (isset($item['brand']) && trim($item['brand']) !== '') {
+                $brandName = trim($item['brand']);
+                $brandKey = strtolower($brandName);
+                if (isset($brandsCache[$brandKey])) {
+                    $brand = $brandsCache[$brandKey];
+                } else {
+                    $brand = Brand::firstOrCreate(['name' => $brandName]);
+                    $brandsCache[$brandKey] = $brand;
+                }
+            }
+
+            // Find or create category
+            $category = null;
+            $subcategory = null;
+            $subSubcategory = null;
+
+            if (isset($item['category']) && trim($item['category']) !== '') {
+                $catName = trim($item['category']);
+                $catKey = strtolower($catName);
+                if (isset($categoriesCache[$catKey])) {
+                    $category = $categoriesCache[$catKey];
+                } else {
+                    $category = Category::firstOrCreate(['name' => $catName]);
+                    $categoriesCache[$catKey] = $category;
+                }
+
+                // Find or create subcategory under this category
+                if (isset($item['subcategory']) && trim($item['subcategory']) !== '') {
+                    $subName = trim($item['subcategory']);
+                    $subKey = $category->id . '_' . strtolower($subName);
+                    if (isset($subcategoriesCache[$subKey])) {
+                        $subcategory = $subcategoriesCache[$subKey];
+                    } else {
+                        $subcategory = Subcategory::firstOrCreate([
+                            'category_id' => $category->id,
+                            'name' => $subName
+                        ]);
+                        $subcategoriesCache[$subKey] = $subcategory;
+                    }
+
+                    // Find or create sub-subcategory under this subcategory
+                    if (isset($item['sub_subcategory']) && trim($item['sub_subcategory']) !== '') {
+                        $subSubName = trim($item['sub_subcategory']);
+                        $subSubKey = $subcategory->id . '_' . strtolower($subSubName);
+                        if (isset($subSubcategoriesCache[$subSubKey])) {
+                            $subSubcategory = $subSubcategoriesCache[$subSubKey];
+                        } else {
+                            $subSubcategory = SubSubcategory::firstOrCreate([
+                                'subcategory_id' => $subcategory->id,
+                                'name' => $subSubName
+                            ]);
+                            $subSubcategoriesCache[$subSubKey] = $subSubcategory;
+                        }
+                    }
+                }
+            }
+
+            $productData = [
+                'name' => trim($item['name']),
+                'brand_id' => $brand ? $brand->id : null,
+                'category_id' => $category ? $category->id : null,
+                'subcategory_id' => $subcategory ? $subcategory->id : null,
+                'sub_subcategory_id' => $subSubcategory ? $subSubcategory->id : null,
+                'price' => isset($item['price']) && $item['price'] !== '' ? $item['price'] : null,
+                'status' => 'active',
+            ];
+
+            $ean = trim($item['ean']);
+            $product = $existingProducts->get($ean);
+
+            if ($product) {
+                // Update existing product
+                $product->update($productData);
+                $updatedCount++;
+            } else {
+                // Create new product
+                $productData['ean'] = $ean;
+                Product::create($productData);
+                $importedCount++;
+            }
+        }
+
+        return response()->json([
+            'message' => 'Import completed successfully',
+            'imported' => $importedCount,
+            'updated' => $updatedCount
         ]);
     }
 }

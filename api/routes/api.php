@@ -6,7 +6,10 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\SubcategoryController;
+use App\Http\Controllers\SubSubcategoryController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\DashboardController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -27,6 +30,7 @@ use Illuminate\Support\Facades\Route;
 
 $router->group(['middleware' => ['auth:sanctum']], function () {
     Route::get('accessControl', [AccessTokenController::class, 'accessControl']);
+    Route::get('dashboard/stats', [DashboardController::class, 'stats']);
 
 
     // Permisos
@@ -52,9 +56,12 @@ $router->group(['middleware' => ['auth:sanctum']], function () {
         ]);
 
     // Products Catalog
+    Route::post('products/import', [ProductController::class, 'import']);
     Route::apiResource('products', ProductController::class);
-    Route::apiResource('categories', CategoryController::class)->only(['index']);
-    Route::apiResource('brands', BrandController::class)->only(['index']);
+    Route::apiResource('categories', CategoryController::class);
+    Route::apiResource('subcategories', SubcategoryController::class);
+    Route::apiResource('sub-subcategories', SubSubcategoryController::class);
+    Route::apiResource('brands', BrandController::class);
 });
 
 Route::get('tokens', [AccessTokenController::class, 'index']);

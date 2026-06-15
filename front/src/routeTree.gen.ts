@@ -13,6 +13,8 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppTokensRouteImport } from './routes/_app.tokens'
+import { Route as AppSubcategoriesRouteImport } from './routes/_app.subcategories'
+import { Route as AppSubSubcategoriesRouteImport } from './routes/_app.sub-subcategories'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppCategoriesRouteImport } from './routes/_app.categories'
@@ -38,6 +40,16 @@ const IndexRoute = IndexRouteImport.update({
 const AppTokensRoute = AppTokensRouteImport.update({
   id: '/tokens',
   path: '/tokens',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSubcategoriesRoute = AppSubcategoriesRouteImport.update({
+  id: '/subcategories',
+  path: '/subcategories',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSubSubcategoriesRoute = AppSubSubcategoriesRouteImport.update({
+  id: '/sub-subcategories',
+  path: '/sub-subcategories',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
@@ -83,6 +95,8 @@ export interface FileRoutesByFullPath {
   '/categories': typeof AppCategoriesRoute
   '/dashboard': typeof AppDashboardRoute
   '/settings': typeof AppSettingsRoute
+  '/sub-subcategories': typeof AppSubSubcategoriesRoute
+  '/subcategories': typeof AppSubcategoriesRoute
   '/tokens': typeof AppTokensRoute
   '/products/import': typeof AppProductsImportRoute
   '/products/new': typeof AppProductsNewRoute
@@ -95,6 +109,8 @@ export interface FileRoutesByTo {
   '/categories': typeof AppCategoriesRoute
   '/dashboard': typeof AppDashboardRoute
   '/settings': typeof AppSettingsRoute
+  '/sub-subcategories': typeof AppSubSubcategoriesRoute
+  '/subcategories': typeof AppSubcategoriesRoute
   '/tokens': typeof AppTokensRoute
   '/products/import': typeof AppProductsImportRoute
   '/products/new': typeof AppProductsNewRoute
@@ -109,6 +125,8 @@ export interface FileRoutesById {
   '/_app/categories': typeof AppCategoriesRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/settings': typeof AppSettingsRoute
+  '/_app/sub-subcategories': typeof AppSubSubcategoriesRoute
+  '/_app/subcategories': typeof AppSubcategoriesRoute
   '/_app/tokens': typeof AppTokensRoute
   '/_app/products/import': typeof AppProductsImportRoute
   '/_app/products/new': typeof AppProductsNewRoute
@@ -123,6 +141,8 @@ export interface FileRouteTypes {
     | '/categories'
     | '/dashboard'
     | '/settings'
+    | '/sub-subcategories'
+    | '/subcategories'
     | '/tokens'
     | '/products/import'
     | '/products/new'
@@ -135,6 +155,8 @@ export interface FileRouteTypes {
     | '/categories'
     | '/dashboard'
     | '/settings'
+    | '/sub-subcategories'
+    | '/subcategories'
     | '/tokens'
     | '/products/import'
     | '/products/new'
@@ -148,6 +170,8 @@ export interface FileRouteTypes {
     | '/_app/categories'
     | '/_app/dashboard'
     | '/_app/settings'
+    | '/_app/sub-subcategories'
+    | '/_app/subcategories'
     | '/_app/tokens'
     | '/_app/products/import'
     | '/_app/products/new'
@@ -188,6 +212,20 @@ declare module '@tanstack/react-router' {
       path: '/tokens'
       fullPath: '/tokens'
       preLoaderRoute: typeof AppTokensRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/subcategories': {
+      id: '/_app/subcategories'
+      path: '/subcategories'
+      fullPath: '/subcategories'
+      preLoaderRoute: typeof AppSubcategoriesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/sub-subcategories': {
+      id: '/_app/sub-subcategories'
+      path: '/sub-subcategories'
+      fullPath: '/sub-subcategories'
+      preLoaderRoute: typeof AppSubSubcategoriesRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/settings': {
@@ -247,6 +285,8 @@ interface AppRouteChildren {
   AppCategoriesRoute: typeof AppCategoriesRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppSettingsRoute: typeof AppSettingsRoute
+  AppSubSubcategoriesRoute: typeof AppSubSubcategoriesRoute
+  AppSubcategoriesRoute: typeof AppSubcategoriesRoute
   AppTokensRoute: typeof AppTokensRoute
   AppProductsImportRoute: typeof AppProductsImportRoute
   AppProductsNewRoute: typeof AppProductsNewRoute
@@ -258,6 +298,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppCategoriesRoute: AppCategoriesRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppSettingsRoute: AppSettingsRoute,
+  AppSubSubcategoriesRoute: AppSubSubcategoriesRoute,
+  AppSubcategoriesRoute: AppSubcategoriesRoute,
   AppTokensRoute: AppTokensRoute,
   AppProductsImportRoute: AppProductsImportRoute,
   AppProductsNewRoute: AppProductsNewRoute,
