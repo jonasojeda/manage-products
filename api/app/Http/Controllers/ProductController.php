@@ -10,6 +10,7 @@ use App\Models\SubSubcategory;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class ProductController extends Controller
 {
@@ -18,37 +19,54 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Product::with(['brand', 'category', 'subcategory', 'subSubcategory']);
-
-        // Search filter (SKU or Name)
-        if ($request->filled('q')) {
-            $q = $request->input('q');
-            $query->where(function ($w) use ($q) {
-                $w->where('name', 'like', "%{$q}%")
-                  ->orWhere('sku', 'like', "%{$q}%");
-            });
-        }
-
-        // Brand filter by ID
-        if ($request->filled('brand_id')) {
-            $query->where('brand_id', $request->input('brand_id'));
-        }
-
-        // Brand filter by Name (matches frontend mock filters)
-        if ($request->filled('brand') && $request->input('brand') !== 'all') {
-            $brandName = $request->input('brand');
-            $query->whereHas('brand', function ($b) use ($brandName) {
-                $b->where('name', $brandName);
-            });
-        }
-
-        // Status filter
-        if ($request->filled('status') && $request->input('status') !== 'all') {
-            $query->where('status', $request->input('status'));
-        }
-
+        $page = $request->input('page', 1);
         $perPage = $request->input('per_page', 8);
-        $products = $query->latest()->paginate($perPage);
+        $q = $request->input('q', '');
+        $brandId = $request->input('brand_id', '');
+        $brandName = $request->input('brand', '');
+        $status = $request->input('status', '');
+
+        $cacheKey = 'products_list_' . md5(json_encode([
+            'page' => $page,
+            'per_page' => $perPage,
+            'q' => $q,
+            'brand_id' => $brandId,
+            'brand' => $brandName,
+            'status' => $status
+        ]));
+
+        $products = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($request, $perPage) {
+            $query = Product::with(['brand', 'category', 'subcategory', 'subSubcategory']);
+
+            // Search filter (SKU or Name)
+            if ($request->filled('q')) {
+                $q = $request->input('q');
+                $query->where(function ($w) use ($q) {
+                    $w->where('name', 'like', "%{$q}%")
+                      ->orWhere('sku', 'like', "%{$q}%");
+                });
+            }
+
+            // Brand filter by ID
+            if ($request->filled('brand_id')) {
+                $query->where('brand_id', $request->input('brand_id'));
+            }
+
+            // Brand filter by Name (matches frontend mock filters)
+            if ($request->filled('brand') && $request->input('brand') !== 'all') {
+                $brandName = $request->input('brand');
+                $query->whereHas('brand', function ($b) use ($brandName) {
+                    $b->where('name', $brandName);
+                });
+            }
+
+            // Status filter
+            if ($request->filled('status') && $request->input('status') !== 'all') {
+                $query->where('status', $request->input('status'));
+            }
+
+            return $query->latest()->paginate($perPage);
+        });
 
         return response()->json($products);
     }

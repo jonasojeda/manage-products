@@ -10,6 +10,7 @@ use App\Http\Controllers\SubcategoryController;
 use App\Http\Controllers\SubSubcategoryController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ApiTokenController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -62,6 +63,8 @@ $router->group(['middleware' => ['auth:sanctum']], function () {
     Route::apiResource('subcategories', SubcategoryController::class);
     Route::apiResource('sub-subcategories', SubSubcategoryController::class);
     Route::apiResource('brands', BrandController::class);
+    Route::apiResource('api-tokens', ApiTokenController::class)->only(['index', 'store', 'destroy']);
+    Route::post('api-tokens/{id}/regenerate', [ApiTokenController::class, 'regenerate']);
 });
 
 Route::get('tokens', [AccessTokenController::class, 'index']);

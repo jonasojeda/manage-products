@@ -34,6 +34,14 @@ class Product extends Model
                 $product->sku = self::generateUniqueSku();
             }
         });
+
+        static::saved(function () {
+            \Illuminate\Support\Facades\Cache::flush();
+        });
+
+        static::deleted(function () {
+            \Illuminate\Support\Facades\Cache::flush();
+        });
     }
 
     public static function generateUniqueSku()

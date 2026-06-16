@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Plus, Copy, Trash2, KeyRound, AlertTriangle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, Copy, Trash2, KeyRound, AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +8,17 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { tokens as seed, generateToken, maskToken, type Token } from "@/lib/mock-data";
+import { apiRequest } from "@/lib/api";
 import { toast } from "sonner";
+
+export interface Token {
+  id: number;
+  name: string;
+  token: string;
+  status: string;
+  createdAt: string;
+  lastUsed: string;
+}
 
 export const Route = createFileRoute("/_app/tokens")({
   head: () => ({ meta: [{ title: "API Tokens — Prodly" }] }),
@@ -17,35 +26,76 @@ export const Route = createFileRoute("/_app/tokens")({
 });
 
 function TokensPage() {
-  const [list, setList] = useState<Token[]>(seed);
+  const [list, setList] = useState<Token[]>([]);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [token, setToken] = useState("");
   const [revealed, setRevealed] = useState<Token | null>(null);
 
-  const generate = () => setToken(generateToken());
+  const [loading, setLoading] = useState(true);
 
-  const save = () => {
-    if (!name.trim() || !token) return;
-    const t: Token = {
-      id: `t_${Date.now()}`,
-      name, token, status: "active",
-      createdAt: new Date().toISOString().slice(0, 10),
-      lastUsed: "—",
-    };
-    setList((l) => [t, ...l]);
-    setOpen(false);
-    setRevealed(t);
-    setName(""); setToken("");
+  const fetchTokens = async () => {
+    try {
+      setLoading(true);
+      const data = await apiRequest("api-tokens");
+      setList(data || []);
+    } catch (err) {
+      console.error("Failed to load tokens", err);
+      toast.error("Failed to load tokens.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const revoke = (id: string) => {
-    setList((l) => l.map((t) => (t.id === id ? { ...t, status: "revoked" } : t)));
-    toast.success("Token revoked");
+  useEffect(() => {
+    fetchTokens();
+  }, []);
+
+  const save = async () => {
+    if (!name.trim()) return;
+    try {
+      const data = await apiRequest("api-tokens", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+      setList((l) => [data, ...l]);
+      setOpen(false);
+      setRevealed(data);
+      setName("");
+    } catch (err) {
+      console.error("Failed to create token", err);
+      toast.error("Failed to create token.");
+    }
+  };
+
+  const revoke = async (id: number) => {
+    try {
+      await apiRequest(`api-tokens/${id}`, {
+        method: "DELETE",
+      });
+      setList((l) => l.filter((t) => t.id !== id));
+      toast.success("Token revoked");
+    } catch (err) {
+      console.error("Failed to revoke token", err);
+      toast.error("Failed to revoke token.");
+    }
   };
 
   const copy = async (v: string) => {
     try { await navigator.clipboard.writeText(v); toast.success("Token copied"); } catch { toast.error("Copy failed"); }
+  };
+
+  const handleRegenerate = async (id: number) => {
+    try {
+      const data = await apiRequest(`api-tokens/${id}/regenerate`, {
+        method: "POST",
+      });
+      setList((l) => l.map((t) => (t.id === id ? data : t)));
+      setRevealed(data);
+      toast.success("Token regenerated successfully");
+    } catch (err) {
+      console.error("Failed to regenerate token", err);
+      toast.error("Failed to regenerate token.");
+    }
   };
 
   return (
@@ -55,43 +105,68 @@ function TokensPage() {
           <h1 className="text-2xl font-semibold tracking-tight">API Tokens</h1>
           <p className="text-sm text-muted-foreground">Manage tokens for the Product Microservice API.</p>
         </div>
-        <Button size="sm" onClick={() => { setOpen(true); setName(""); setToken(""); }}>
+        <Button size="sm" onClick={() => { setOpen(true); setName(""); }}>
           <Plus className="mr-2 h-4 w-4" />Create Token
         </Button>
       </div>
 
       <Card className="border-border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Token</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Last Used</TableHead>
-              <TableHead className="w-[140px] text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {list.map((t) => (
-              <TableRow key={t.id}>
-                <TableCell className="font-medium">
-                  <div className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-muted-foreground" />{t.name}</div>
-                </TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground">{maskToken(t.token)}</TableCell>
-                <TableCell>
-                  <Badge variant={t.status === "active" ? "default" : "outline"} className="capitalize">{t.status}</Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{t.createdAt}</TableCell>
-                <TableCell className="text-muted-foreground">{t.lastUsed}</TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" onClick={() => copy(t.token)}><Copy className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" disabled={t.status === "revoked"} onClick={() => revoke(t.id)}><Trash2 className="h-4 w-4" /></Button>
-                </TableCell>
+        <div className="overflow-x-auto relative min-h-[150px]">
+          {loading ? (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : null}
+
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Token</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead>Last Used</TableHead>
+                <TableHead className="w-[100px] text-right">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {list.map((t) => (
+                <TableRow key={t.id}>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2"><KeyRound className="h-4 w-4 text-muted-foreground" />{t.name}</div>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{t.token}</TableCell>
+                  <TableCell>
+                    <Badge variant={t.status === "active" ? "default" : "outline"} className="capitalize">{t.status}</Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{t.createdAt}</TableCell>
+                  <TableCell className="text-muted-foreground">{t.lastUsed}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={t.status === "revoked"}
+                        onClick={() => handleRegenerate(t.id)}
+                        title="Volver a generar token"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" disabled={t.status === "revoked"} onClick={() => revoke(t.id)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!loading && list.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                    No active API tokens found. Create one to get started.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -105,17 +180,10 @@ function TokensPage() {
               <Label>Name</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Production Server" />
             </div>
-            <div className="space-y-2">
-              <Label>Token</Label>
-              <div className="flex gap-2">
-                <Input value={token} readOnly placeholder="Click Generate to create a token" className="font-mono text-xs" />
-                <Button type="button" variant="outline" onClick={generate}>Generate</Button>
-              </div>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={save} disabled={!name || !token}>Save</Button>
+            <Button onClick={save} disabled={!name.trim()}>Save</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
