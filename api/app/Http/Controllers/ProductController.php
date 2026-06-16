@@ -190,6 +190,62 @@ class ProductController extends Controller
         $subcategoriesCache = [];
         $subSubcategoriesCache = [];
 
+        // Pre-load brands from database in bulk to warm cache
+        $brandNames = array_filter(array_unique(array_map(function ($item) {
+            return isset($item['brand']) && trim($item['brand']) !== '' ? trim($item['brand']) : '';
+        }, $productsInput)));
+        if (!empty($brandNames)) {
+            $existingBrands = Brand::whereIn('name', $brandNames)->get();
+            foreach ($existingBrands as $b) {
+                $brandsCache[strtolower($b->name)] = $b;
+            }
+        }
+
+        // Pre-load categories from database in bulk to warm cache
+        $categoryNames = array_filter(array_unique(array_map(function ($item) {
+            return isset($item['category']) && trim($item['category']) !== '' ? trim($item['category']) : '';
+        }, $productsInput)));
+        if (!empty($categoryNames)) {
+            $existingCategories = Category::whereIn('name', $categoryNames)->get();
+            foreach ($existingCategories as $c) {
+                $categoriesCache[strtolower($c->name)] = $c;
+            }
+        }
+
+        // Pre-load subcategories from database in bulk to warm cache
+        $subcategoryNames = array_filter(array_unique(array_map(function ($item) {
+            return isset($item['subcategory']) && trim($item['subcategory']) !== '' ? trim($item['subcategory']) : '';
+        }, $productsInput)));
+        if (!empty($subcategoryNames) && !empty($categoriesCache)) {
+            $categoryIds = array_map(function ($cat) {
+                return $cat->id;
+            }, array_values($categoriesCache));
+
+            $existingSubcategories = Subcategory::whereIn('name', $subcategoryNames)
+                ->whereIn('category_id', $categoryIds)
+                ->get();
+            foreach ($existingSubcategories as $s) {
+                $subcategoriesCache[$s->category_id . '_' . strtolower($s->name)] = $s;
+            }
+        }
+
+        // Pre-load sub-subcategories from database in bulk to warm cache
+        $subSubcategoryNames = array_filter(array_unique(array_map(function ($item) {
+            return isset($item['sub_subcategory']) && trim($item['sub_subcategory']) !== '' ? trim($item['sub_subcategory']) : '';
+        }, $productsInput)));
+        if (!empty($subSubcategoryNames) && !empty($subcategoriesCache)) {
+            $subcategoryIds = array_map(function ($sub) {
+                return $sub->id;
+            }, array_values($subcategoriesCache));
+
+            $existingSubSubcategories = SubSubcategory::whereIn('name', $subSubcategoryNames)
+                ->whereIn('subcategory_id', $subcategoryIds)
+                ->get();
+            foreach ($existingSubSubcategories as $ss) {
+                $subSubcategoriesCache[$ss->subcategory_id . '_' . strtolower($ss->name)] = $ss;
+            }
+        }
+
         DB::beginTransaction();
         try {
             foreach ($productsInput as $item) {

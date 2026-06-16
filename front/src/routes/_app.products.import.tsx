@@ -43,6 +43,7 @@ function ImportCsv() {
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [importing, setImporting] = useState(false);
   const [skipExisting, setSkipExisting] = useState(false);
+  const [batchSize, setBatchSize] = useState<number>(500);
   const [allJsonRows, setAllJsonRows] = useState<any[][]>([]);
   const [headerRow, setHeaderRow] = useState<number>(1);
   const [dataStartRow, setDataStartRow] = useState<number>(2);
@@ -210,13 +211,13 @@ function ImportCsv() {
       message: "Preparing import payload..."
     });
 
-    const BATCH_SIZE = 2000;
+    const currentBatchSize = batchSize;
     let importedCount = 0;
     let updatedCount = 0;
     let skippedCount = 0;
 
-    for (let i = 0; i < total; i += BATCH_SIZE) {
-      const batch = allProducts.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < total; i += currentBatchSize) {
+      const batch = allProducts.slice(i, i + currentBatchSize);
       const currentProgress = i + batch.length;
       
       setImportStatus(prev => prev ? {
@@ -422,6 +423,31 @@ function ImportCsv() {
                       Si se activa, se omitirán los productos con EAN ya registrados, reduciendo drásticamente el tiempo de carga. Si se desactiva, se actualizarán los datos de los productos existentes.
                     </p>
                   </div>
+                </div>
+
+                <div className="space-y-2 border-t border-border pt-4">
+                  <label htmlFor="batch-size" className="text-xs font-semibold text-foreground">
+                    Tamaño de lote (Batch Size)
+                  </label>
+                  <Select
+                    value={String(batchSize)}
+                    onValueChange={(val) => setBatchSize(parseInt(val))}
+                    disabled={importing}
+                  >
+                    <SelectTrigger id="batch-size" className="w-full text-xs h-8">
+                      <SelectValue placeholder="Seleccionar tamaño de lote" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="100" className="text-xs">100 productos (Más seguro / servidores lentos)</SelectItem>
+                      <SelectItem value="250" className="text-xs">250 productos</SelectItem>
+                      <SelectItem value="500" className="text-xs">500 productos (Recomendado)</SelectItem>
+                      <SelectItem value="1000" className="text-xs">1000 productos</SelectItem>
+                      <SelectItem value="2000" className="text-xs">2000 productos (Servidor rápido)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground leading-normal">
+                    Lotes más pequeños evitan errores de tiempo de espera (504 Gateway Timeout) en servidores de producción.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 border-t border-border pt-4">
