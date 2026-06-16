@@ -16,6 +16,7 @@ import { Route as AppTokensRouteImport } from './routes/_app.tokens'
 import { Route as AppSubcategoriesRouteImport } from './routes/_app.subcategories'
 import { Route as AppSubSubcategoriesRouteImport } from './routes/_app.sub-subcategories'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
+import { Route as AppDocsRouteImport } from './routes/_app.docs'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppCategoriesRouteImport } from './routes/_app.categories'
 import { Route as AppBrandsRouteImport } from './routes/_app.brands'
@@ -57,6 +58,11 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDocsRoute = AppDocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/brands': typeof AppBrandsRoute
   '/categories': typeof AppCategoriesRoute
   '/dashboard': typeof AppDashboardRoute
+  '/docs': typeof AppDocsRoute
   '/settings': typeof AppSettingsRoute
   '/sub-subcategories': typeof AppSubSubcategoriesRoute
   '/subcategories': typeof AppSubcategoriesRoute
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   '/brands': typeof AppBrandsRoute
   '/categories': typeof AppCategoriesRoute
   '/dashboard': typeof AppDashboardRoute
+  '/docs': typeof AppDocsRoute
   '/settings': typeof AppSettingsRoute
   '/sub-subcategories': typeof AppSubSubcategoriesRoute
   '/subcategories': typeof AppSubcategoriesRoute
@@ -124,6 +132,7 @@ export interface FileRoutesById {
   '/_app/brands': typeof AppBrandsRoute
   '/_app/categories': typeof AppCategoriesRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/docs': typeof AppDocsRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/sub-subcategories': typeof AppSubSubcategoriesRoute
   '/_app/subcategories': typeof AppSubcategoriesRoute
@@ -140,6 +149,7 @@ export interface FileRouteTypes {
     | '/brands'
     | '/categories'
     | '/dashboard'
+    | '/docs'
     | '/settings'
     | '/sub-subcategories'
     | '/subcategories'
@@ -154,6 +164,7 @@ export interface FileRouteTypes {
     | '/brands'
     | '/categories'
     | '/dashboard'
+    | '/docs'
     | '/settings'
     | '/sub-subcategories'
     | '/subcategories'
@@ -169,6 +180,7 @@ export interface FileRouteTypes {
     | '/_app/brands'
     | '/_app/categories'
     | '/_app/dashboard'
+    | '/_app/docs'
     | '/_app/settings'
     | '/_app/sub-subcategories'
     | '/_app/subcategories'
@@ -235,6 +247,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/docs': {
+      id: '/_app/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof AppDocsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboard': {
       id: '/_app/dashboard'
       path: '/dashboard'
@@ -284,6 +303,7 @@ interface AppRouteChildren {
   AppBrandsRoute: typeof AppBrandsRoute
   AppCategoriesRoute: typeof AppCategoriesRoute
   AppDashboardRoute: typeof AppDashboardRoute
+  AppDocsRoute: typeof AppDocsRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppSubSubcategoriesRoute: typeof AppSubSubcategoriesRoute
   AppSubcategoriesRoute: typeof AppSubcategoriesRoute
@@ -297,6 +317,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppBrandsRoute: AppBrandsRoute,
   AppCategoriesRoute: AppCategoriesRoute,
   AppDashboardRoute: AppDashboardRoute,
+  AppDocsRoute: AppDocsRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppSubSubcategoriesRoute: AppSubSubcategoriesRoute,
   AppSubcategoriesRoute: AppSubcategoriesRoute,

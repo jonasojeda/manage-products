@@ -11,6 +11,7 @@ import {
   KeyRound,
   Settings,
   Boxes,
+  BookOpen,
 } from "lucide-react";
 import {
   Sidebar,
@@ -48,7 +49,10 @@ const groups = [
   },
   {
     label: "API",
-    items: [{ title: "API Tokens", url: "/tokens", icon: KeyRound }],
+    items: [
+      { title: "API Tokens", url: "/tokens", icon: KeyRound },
+      { title: "API Reference", url: "/docs", icon: BookOpen },
+    ],
   },
   {
     label: "System",

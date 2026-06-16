@@ -295,4 +295,22 @@ class ProductController extends Controller
             'skipped' => $skippedCount,
         ]);
     }
+
+    /**
+     * Retrieve the specified product by its EAN.
+     */
+    public function showByEan($ean)
+    {
+        $product = Product::with(['brand', 'category', 'subcategory', 'subSubcategory'])
+            ->where('ean', $ean)
+            ->first();
+
+        if (!$product) {
+            return response()->json([
+                'message' => 'Product not found with EAN: ' . $ean
+            ], 404);
+        }
+
+        return response()->json($product);
+    }
 }

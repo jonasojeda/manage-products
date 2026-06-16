@@ -65,6 +65,7 @@ $router->group(['middleware' => ['auth:sanctum']], function () {
     Route::apiResource('brands', BrandController::class);
     Route::apiResource('api-tokens', ApiTokenController::class)->only(['index', 'store', 'destroy']);
     Route::post('api-tokens/{id}/regenerate', [ApiTokenController::class, 'regenerate']);
+    Route::get('external/products/{ean}', [ProductController::class, 'showByEan']);
 });
 
 Route::get('tokens', [AccessTokenController::class, 'index']);
