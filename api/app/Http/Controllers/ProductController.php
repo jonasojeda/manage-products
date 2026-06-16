@@ -38,12 +38,13 @@ class ProductController extends Controller
         $products = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($request, $perPage) {
             $query = Product::with(['brand', 'category', 'subcategory', 'subSubcategory']);
 
-            // Search filter (SKU or Name)
+            // Search filter (SKU, Name, or EAN)
             if ($request->filled('q')) {
                 $q = $request->input('q');
                 $query->where(function ($w) use ($q) {
                     $w->where('name', 'like', "%{$q}%")
-                      ->orWhere('sku', 'like', "%{$q}%");
+                      ->orWhere('sku', 'like', "%{$q}%")
+                      ->orWhere('ean', 'like', "%{$q}%");
                 });
             }
 

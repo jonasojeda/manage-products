@@ -140,6 +140,7 @@ function ProductsList() {
             <TableHeader>
               <TableRow>
                 <TableHead>SKU</TableHead>
+                <TableHead>EAN</TableHead>
                 <TableHead>Product</TableHead>
                 <TableHead>Brand</TableHead>
                 <TableHead>Cat 1</TableHead>
@@ -154,6 +155,7 @@ function ProductsList() {
               {productsList.map((p) => (
                 <TableRow key={p.id}>
                   <TableCell className="font-mono text-xs text-muted-foreground">{p.sku}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{p.ean || "-"}</TableCell>
                   <TableCell className="font-medium">{p.name}</TableCell>
                   <TableCell className="text-muted-foreground">{p.brand?.name || "-"}</TableCell>
                   <TableCell className="text-muted-foreground">{p.category?.name || "-"}</TableCell>
@@ -177,7 +179,7 @@ function ProductsList() {
               ))}
               {!loading && productsList.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
                     No products match your filters.
                   </TableCell>
                 </TableRow>

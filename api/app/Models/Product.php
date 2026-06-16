@@ -50,18 +50,15 @@ class Product extends Model
 
     public static function generateUniqueSku()
     {
-        $latestSkus = self::where('sku', 'like', 'SKU-%')
-            ->pluck('sku')
-            ->toArray();
+        $highestSku = self::where('sku', 'like', 'SKU-%')
+            ->orderByRaw('LENGTH(sku) DESC, sku DESC')
+            ->first();
 
         $maxNumber = 999;
-        foreach ($latestSkus as $sku) {
-            $numberPart = substr($sku, 4);
+        if ($highestSku) {
+            $numberPart = substr($highestSku->sku, 4);
             if (is_numeric($numberPart)) {
-                $num = (int)$numberPart;
-                if ($num > $maxNumber) {
-                    $maxNumber = $num;
-                }
+                $maxNumber = (int)$numberPart;
             }
         }
 
