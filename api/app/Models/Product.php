@@ -51,7 +51,7 @@ class Product extends Model
     public static function generateUniqueSku()
     {
         $highestSku = self::where('sku', 'like', 'SKU-%')
-            ->orderByRaw('LENGTH(sku) DESC, sku DESC')
+            ->orderBy('id', 'desc')
             ->first();
 
         $maxNumber = 999;
