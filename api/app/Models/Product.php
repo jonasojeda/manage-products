@@ -9,6 +9,8 @@ class Product extends Model
 {
     use HasFactory;
 
+    public static $disableCacheFlush = false;
+
     protected $fillable = [
         'sku',
         'name',
@@ -36,7 +38,9 @@ class Product extends Model
         });
 
         static::saved(function () {
-            \Illuminate\Support\Facades\Cache::flush();
+            if (!self::$disableCacheFlush) {
+                \Illuminate\Support\Facades\Cache::flush();
+            }
         });
 
         static::deleted(function () {

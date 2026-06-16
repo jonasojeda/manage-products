@@ -155,6 +155,10 @@ class ProductController extends Controller
         ini_set('max_execution_time', 0);
         ini_set('memory_limit', '512M');
 
+        Product::$disableCacheFlush = true;
+
+        try {
+
         $request->validate([
             'products' => ['required', 'array'],
             'products.*.name' => ['required', 'string', 'max:255'],
@@ -344,12 +348,16 @@ class ProductController extends Controller
             throw $e;
         }
 
-        return response()->json([
-            'message' => 'Import completed successfully',
-            'imported' => $importedCount,
-            'updated' => $updatedCount,
-            'skipped' => $skippedCount,
-        ]);
+            return response()->json([
+                'message' => 'Import completed successfully',
+                'imported' => $importedCount,
+                'updated' => $updatedCount,
+                'skipped' => $skippedCount,
+            ]);
+        } finally {
+            Product::$disableCacheFlush = false;
+            Cache::flush();
+        }
     }
 
     /**
